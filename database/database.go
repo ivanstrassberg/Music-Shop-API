@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/github"
 	_ "github.com/lib/pq"
 )
 
@@ -26,4 +28,10 @@ func NewPostgresStorage() (*sql.DB, error) {
 		return nil, err
 	}
 	return conn, nil
+}
+
+func (s *PostgresStore) something() error {
+
+	// m, err := migrate.New()
+	return nil
 }
