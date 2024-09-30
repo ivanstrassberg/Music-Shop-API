@@ -38,19 +38,26 @@ func (s *APIServer) handleInfo(w http.ResponseWriter, r *http.Request) error {
 	// non ASCII Characters handling just for fun
 	decodedGroup, err := url.QueryUnescape(group)
 	if err != nil {
-		WriteJSON(w, http.StatusBadRequest, "Error decoding group")
-		return err
+		WriteJSON(w, http.StatusBadRequest, "bad request")
+		return nil
 	}
 
 	decodedSong, err := url.QueryUnescape(song)
 	if err != nil {
-		WriteJSON(w, http.StatusBadRequest, "Error decoding song")
-		return err
+		WriteJSON(w, http.StatusBadRequest, "bad request")
+		return nil
 	}
 
-	s.storage.AddSong(decodedGroup, decodedSong)
+	songDetail, err := s.storage.GetSong(decodedGroup, decodedSong)
+	if err != nil {
+		WriteJSON(w, http.StatusInternalServerError, "internal server error", err)
+		return nil
+	}
+	WriteJSON(w, http.StatusOK, songDetail)
 	return nil
 }
+
+// Auxiliary functions.
 
 func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -60,10 +67,11 @@ func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 	}
 }
 
-func WriteJSON(w http.ResponseWriter, status int, msg any) {
+func WriteJSON(w http.ResponseWriter, status int, msg any, err ...error) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(msg)
+	log.Println(err)
 }
 
 type apiFunc func(http.ResponseWriter, *http.Request) error
