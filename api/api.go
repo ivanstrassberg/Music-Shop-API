@@ -7,6 +7,7 @@ import (
 	database "musicShopBackend/database"
 	models "musicShopBackend/musicModels"
 	"net/http"
+	"net/url"
 )
 
 type APIServer struct {
@@ -23,16 +24,31 @@ func NewAPIServer(listedAddr string, store database.Storage) *APIServer {
 
 func (s *APIServer) Run() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/main", makeHTTPHandleFunc(s.handleMain))
+	mux.HandleFunc("GET /info/{group}/{song}", makeHTTPHandleFunc(s.handleInfo))
 
-	log.Println("Server running on port", s.listenAddr)
+	log.Println("Server started on port", s.listenAddr)
 	if err := http.ListenAndServe(s.listenAddr, mux); err != nil {
 		fmt.Errorf("Failed to start a server on port %s", s.listenAddr)
 	}
+
 }
 
-func (s *APIServer) handleMain(w http.ResponseWriter, r *http.Request) error {
-	WriteJSON(w, http.StatusOK, "we ball")
+func (s *APIServer) handleInfo(w http.ResponseWriter, r *http.Request) error {
+	group, song := r.PathValue("group"), r.PathValue("song")
+	// non ASCII Characters handling just for fun
+	decodedGroup, err := url.QueryUnescape(group)
+	if err != nil {
+		WriteJSON(w, http.StatusBadRequest, "Error decoding group")
+		return err
+	}
+
+	decodedSong, err := url.QueryUnescape(song)
+	if err != nil {
+		WriteJSON(w, http.StatusBadRequest, "Error decoding song")
+		return err
+	}
+
+	s.storage.AddSong(decodedGroup, decodedSong)
 	return nil
 }
 
