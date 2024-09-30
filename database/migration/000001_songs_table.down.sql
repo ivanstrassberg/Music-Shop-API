@@ -1,3 +1,1 @@
-create table if not exists "songs"  {
-    id serial primary key
-}
+drop table if exists songs;

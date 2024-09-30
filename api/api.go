@@ -8,6 +8,7 @@ import (
 	models "musicShopBackend/musicModels"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 type APIServer struct {
@@ -24,8 +25,9 @@ func NewAPIServer(listedAddr string, store database.Storage) *APIServer {
 
 func (s *APIServer) Run() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /info/{group}/{song}", makeHTTPHandleFunc(s.handleInfo))
-
+	mux.HandleFunc("GET /info/{group}/{song}", makeHTTPHandleFunc(s.handleGetSong))
+	mux.HandleFunc("POST /info", makeHTTPHandleFunc(s.handlePostSong))
+	mux.HandleFunc("PUT /info", makeHTTPHandleFunc(s.handleUpdateSong)) // patch maybe?
 	log.Println("Server started on port", s.listenAddr)
 	if err := http.ListenAndServe(s.listenAddr, mux); err != nil {
 		fmt.Errorf("Failed to start a server on port %s", s.listenAddr)
@@ -33,7 +35,7 @@ func (s *APIServer) Run() {
 
 }
 
-func (s *APIServer) handleInfo(w http.ResponseWriter, r *http.Request) error {
+func (s *APIServer) handleGetSong(w http.ResponseWriter, r *http.Request) error {
 	group, song := r.PathValue("group"), r.PathValue("song")
 	// non ASCII Characters handling just for fun
 	decodedGroup, err := url.QueryUnescape(group)
@@ -53,7 +55,49 @@ func (s *APIServer) handleInfo(w http.ResponseWriter, r *http.Request) error {
 		WriteJSON(w, http.StatusInternalServerError, "internal server error", err)
 		return nil
 	}
+	if songDetail.ReleaseDate == "" {
+		WriteJSON(w, http.StatusNotFound, "not found")
+		return nil
+	}
 	WriteJSON(w, http.StatusOK, songDetail)
+	return nil
+}
+
+func (s *APIServer) handleUpdateSong(w http.ResponseWriter, r *http.Request) error {
+	updateSong := new(models.UpdateSong)
+	if err := json.NewDecoder(r.Body).Decode(updateSong); err != nil {
+		WriteJSON(w, http.StatusBadRequest, "bad request")
+		return err
+	}
+	songReleaseDateParsed, err := time.Parse("DD.MM.YYYY", updateSong.ReleaseDate)
+	if err != nil {
+		WriteJSON(w, http.StatusInternalServerError, "internal server error")
+		return err
+	}
+	fmt.Println(songReleaseDateParsed)
+	if err := s.storage.UpdateSong(
+		updateSong.SongKey, updateSong.GroupKey, updateSong.Song,
+		updateSong.Group, songReleaseDateParsed, updateSong.SongText,
+		updateSong.SongLink); err != nil {
+		WriteJSON(w, http.StatusInternalServerError, "internal server error")
+		return err
+	}
+	WriteJSON(w, http.StatusOK, "song updated")
+	return nil
+
+}
+
+func (s *APIServer) handlePostSong(w http.ResponseWriter, r *http.Request) error {
+	addSong := new(models.AddSong)
+	if err := json.NewDecoder(r.Body).Decode(addSong); err != nil {
+		WriteJSON(w, http.StatusBadRequest, "bad request")
+		return nil
+	}
+	if err := s.storage.AddSong(addSong.Song, addSong.Group); err != nil {
+		WriteJSON(w, http.StatusInternalServerError, "internal server error")
+		return nil
+	}
+	WriteJSON(w, http.StatusOK, "song created")
 	return nil
 }
 
