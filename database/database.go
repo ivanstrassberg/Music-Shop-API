@@ -13,7 +13,7 @@ import (
 
 type Storage interface {
 	GetSong(string, string) (*models.GetSongDetail, error)
-	UpdateSong(string, string, string, string, time.Time, string, string) error
+	UpdateSong(int, string, string, time.Time, string, string) error
 	AddSong(string, string) error
 }
 
@@ -65,16 +65,16 @@ func scanIntoSong(rows *sql.Rows) (*models.GetSongDetail, error) {
 	return songDetails, nil
 }
 
-func (s *PostgresStore) UpdateSong(songKey, groupKey, songName, groupName string, releaseDate time.Time, songText, songLink string) error {
+func (s *PostgresStore) UpdateSong(songID int, songName, groupName string, releaseDate time.Time, songText, songLink string) error {
 	query := `update songs 
-set song_name = $3, 
-    group_name = $4, 
-    release_date = TO_DATE($5, 'DD.MM.YYYY'), 
-    song_text = $6, 
-    song_link = $7,
-	udpated_at = $8
-where song_name = $1 and group_name = $2;`
-	_, err := s.db.Query(query, songKey, groupKey, songName, groupName, releaseDate, songText, songLink, time.Now())
+set song_name = $2, 
+    group_name = $3, 
+    release_date = $4, 
+    song_text = $5, 
+    song_link = $6,
+    updated_at = $7 
+where song_id = $1;`
+	_, err := s.db.Exec(query, songID, songName, groupName, releaseDate.Format("2006-01-02"), songText, songLink, time.Now())
 	if err != nil {
 		return err
 	}

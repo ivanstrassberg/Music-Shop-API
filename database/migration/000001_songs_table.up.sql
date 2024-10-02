@@ -1,7 +1,7 @@
 create extension if not exists pgcrypto; 
 
 create table if not exists "songs"  (
-    uuid UUID default gen_random_uuid() primary key,
+    song_id serial primary key,
     song_name varchar(255) not null,
     group_name varchar(255) not null,
     release_date date,

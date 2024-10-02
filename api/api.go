@@ -67,24 +67,26 @@ func (s *APIServer) handleUpdateSong(w http.ResponseWriter, r *http.Request) err
 	updateSong := new(models.UpdateSong)
 	if err := json.NewDecoder(r.Body).Decode(updateSong); err != nil {
 		WriteJSON(w, http.StatusBadRequest, "bad request")
-		return err
+		return nil
 	}
-	songReleaseDateParsed, err := time.Parse("DD.MM.YYYY", updateSong.ReleaseDate)
+
+	inputLayout := "02.01.2006"
+	parsedDate, err := time.Parse(inputLayout, updateSong.ReleaseDate)
 	if err != nil {
-		WriteJSON(w, http.StatusInternalServerError, "internal server error")
+		WriteJSON(w, http.StatusBadRequest, "invalid date format, expected DD.MM.YYYY")
 		return err
 	}
-	fmt.Println(songReleaseDateParsed)
+
 	if err := s.storage.UpdateSong(
-		updateSong.SongKey, updateSong.GroupKey, updateSong.Song,
-		updateSong.Group, songReleaseDateParsed, updateSong.SongText,
+		updateSong.SongID, updateSong.Song,
+		updateSong.Group, parsedDate, updateSong.SongText,
 		updateSong.SongLink); err != nil {
 		WriteJSON(w, http.StatusInternalServerError, "internal server error")
-		return err
+		return nil
 	}
+
 	WriteJSON(w, http.StatusOK, "song updated")
 	return nil
-
 }
 
 func (s *APIServer) handlePostSong(w http.ResponseWriter, r *http.Request) error {
