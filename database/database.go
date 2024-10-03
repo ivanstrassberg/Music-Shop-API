@@ -12,9 +12,10 @@ import (
 )
 
 type Storage interface {
-	GetSong(string, string) (*models.GetSongDetail, error)
 	UpdateSong(int, string, string, time.Time, string, string) error
 	AddSong(string, string) error
+	DeleteSong(int) error
+	GetFilteredSongsDataWithPagination(string, string, time.Time, string, string, int, int) ([]models.GetSong, int, error)
 }
 
 type PostgresStore struct {
@@ -38,31 +39,37 @@ func NewPostgresStorage() (*PostgresStore, error) {
 	}, nil
 }
 
-func (s *PostgresStore) GetSong(group, song string) (*models.GetSongDetail, error) {
-	details := new(models.GetSongDetail)
-	query := `select (release_date, song_text, song_link) from songs where group_name=$1 and song_name=$2`
-	rows, err := s.db.Query(query, group, song)
-	if err != nil {
-		return nil, err
-	}
-	details, err = scanIntoSong(rows)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return details, nil
+func formatToStringForDBRequest(date time.Time) string {
+	return date.Format("2006-01-02")
 }
 
-func scanIntoSong(rows *sql.Rows) (*models.GetSongDetail, error) {
-	songDetails := new(models.GetSongDetail)
+func scanIntoSong(rows *sql.Rows) ([]models.GetSong, error) {
+	var songs []models.GetSong
 	for rows.Next() {
-		if err := rows.Scan(&songDetails.ReleaseDate, &songDetails.Text, &songDetails.Link); err != nil {
+		var songDetails models.GetSong
+		var id int
+		var releaseDate sql.NullTime
+		var songText, songLink, song, group sql.NullString
+		var create, update *time.Time
+		if err := rows.Scan(
+			&id, &song, &group, &releaseDate, &songText, &songLink, &create, &update,
+		); err != nil {
 			return nil, err
 		}
-	}
 
-	return songDetails, nil
+		songDetails.Song = song.String
+		songDetails.Group = group.String
+		if releaseDate.Valid {
+			songDetails.ReleaseDate = releaseDate.Time
+		} else {
+			songDetails.ReleaseDate = time.Time{}
+		}
+		songDetails.SongText = songText.String
+		songDetails.SongLink = songLink.String
+
+		songs = append(songs, songDetails)
+	}
+	return songs, nil
 }
 
 func (s *PostgresStore) UpdateSong(songID int, songName, groupName string, releaseDate time.Time, songText, songLink string) error {
@@ -74,7 +81,7 @@ set song_name = $2,
     song_link = $6,
     updated_at = $7 
 where song_id = $1;`
-	_, err := s.db.Exec(query, songID, songName, groupName, releaseDate.Format("2006-01-02"), songText, songLink, time.Now())
+	_, err := s.db.Exec(query, songID, songName, groupName, formatToStringForDBRequest(releaseDate), songText, songLink, time.Now())
 	if err != nil {
 		return err
 	}
@@ -89,4 +96,83 @@ VALUES ($1,$2);`
 		return err
 	}
 	return nil
+}
+
+func (s *PostgresStore) DeleteSong(songID int) error {
+	query := `delete from songs where song_id = $1`
+	result, err := s.db.Exec(query, songID)
+	if err != nil {
+		return err
+	}
+	checkIfDeleted, _ := result.RowsAffected()
+	if checkIfDeleted == 0 {
+		return fmt.Errorf("no song found")
+	}
+	return nil
+}
+
+func (s *PostgresStore) GetFilteredSongsDataWithPagination(songName, groupName string, dateParsed time.Time, songText, songLink string, entriesPerPage, offset int) ([]models.GetSong, int, error) {
+
+	query := `SELECT * FROM songs WHERE 1=1`
+	var args []interface{}
+	argCount := 1
+
+	if songName != "" {
+		query += fmt.Sprintf(" AND song_name ILIKE '%%' || $%d || '%%'", argCount)
+		args = append(args, songName)
+		argCount++
+	}
+
+	if groupName != "" {
+		query += fmt.Sprintf(" AND group_name ILIKE '%%' || $%d || '%%'", argCount)
+		args = append(args, groupName)
+		argCount++
+	}
+
+	if !dateParsed.IsZero() {
+		query += fmt.Sprintf(" AND release_date = $%d", argCount)
+		args = append(args, dateParsed)
+		argCount++
+	}
+
+	if songText != "" {
+		query += fmt.Sprintf(" AND song_text ILIKE '%%' || $%d || '%%'", argCount)
+		args = append(args, songText)
+		argCount++
+	}
+
+	if songLink != "" {
+		query += fmt.Sprintf(" AND song_link ILIKE '%%' || $%d || '%%'", argCount)
+		args = append(args, songLink)
+		argCount++
+	}
+
+	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argCount, argCount+1)
+	args = append(args, entriesPerPage, offset)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	songs, err := scanIntoSong(rows)
+	if err != nil {
+		return nil, 0, err
+	}
+	var entriesTotal int
+	countQuery := `SELECT count(*) FROM songs`
+	if err := s.db.QueryRow(countQuery).Scan(&entriesTotal); err != nil {
+		return nil, 0, err
+	}
+
+	return songs, entriesTotal, nil
+}
+
+func convertForJSONFormat(dateStr string) string {
+	parsedTime, err := time.Parse(time.RFC3339, dateStr)
+	if err != nil {
+		return ""
+	}
+	return parsedTime.Format("02.01.2006")
 }
