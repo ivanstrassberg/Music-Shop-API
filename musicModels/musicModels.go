@@ -26,11 +26,11 @@ type PaginatedFilteredResults struct {
 }
 
 type GetSong struct {
-	Song        string    `json:"song"`
-	Group       string    `json:"group"`
-	ReleaseDate time.Time `json:"release_date"`
-	SongText    string    `json:"song_text"`
-	SongLink    string    `json:"song_link"`
+	Song        string `json:"song"`
+	Group       string `json:"group"`
+	ReleaseDate string `json:"release_date"`
+	SongText    string `json:"song_text"`
+	SongLink    string `json:"song_link"`
 }
 
 type UpdateSong struct {

@@ -60,9 +60,9 @@ func scanIntoSong(rows *sql.Rows) ([]models.GetSong, error) {
 		songDetails.Song = song.String
 		songDetails.Group = group.String
 		if releaseDate.Valid {
-			songDetails.ReleaseDate = releaseDate.Time
+			songDetails.ReleaseDate = convertToTimeAndFormat(releaseDate.Time)
 		} else {
-			songDetails.ReleaseDate = time.Time{}
+			songDetails.ReleaseDate = ""
 		}
 		songDetails.SongText = songText.String
 		songDetails.SongLink = songLink.String
@@ -169,10 +169,9 @@ func (s *PostgresStore) GetFilteredSongsDataWithPagination(songName, groupName s
 	return songs, entriesTotal, nil
 }
 
-func convertForJSONFormat(dateStr string) string {
-	parsedTime, err := time.Parse(time.RFC3339, dateStr)
-	if err != nil {
-		return ""
-	}
-	return parsedTime.Format("02.01.2006")
+func convertToTimeAndFormat(dateStr time.Time) string {
+	// parsedTime, _ := time.Parse(time.RFC3339, dateStr)
+
+	formattedDate := dateStr.Format("02.01.2006")
+	return formattedDate
 }

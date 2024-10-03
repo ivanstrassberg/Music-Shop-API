@@ -26,7 +26,7 @@ func NewAPIServer(listedAddr string, store database.Storage) *APIServer {
 func (s *APIServer) Run() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /info", makeHTTPHandleFunc(s.handleGetSongsWithPagination))
-	// mux.HandleFunc("GET /info/{group}/{song}", makeHTTPHandleFunc(s.handleGetSong))
+	mux.HandleFunc("GET /info/{group}/{song}", makeHTTPHandleFunc(s.handleGetSongText))
 	mux.HandleFunc("POST /info", makeHTTPHandleFunc(s.handlePostSong))
 	mux.HandleFunc("PUT /info", makeHTTPHandleFunc(s.handleUpdateSong))
 	mux.HandleFunc("DELETE /info/{id}", makeHTTPHandleFunc(s.handleDeleteSong))
@@ -37,33 +37,9 @@ func (s *APIServer) Run() {
 
 }
 
-// func (s *APIServer) handleGetSong(w http.ResponseWriter, r *http.Request) error {
-// 	group, song := r.PathValue("group"), r.PathValue("song")
-// 	// non ASCII Characters handling just for fun
-// 	decodedGroup, err := url.QueryUnescape(group)
-// 	if err != nil {
-// 		WriteJSON(w, http.StatusBadRequest, "bad request")
-// 		return nil
-// 	}
-
-// 	decodedSong, err := url.QueryUnescape(song)
-// 	if err != nil {
-// 		WriteJSON(w, http.StatusBadRequest, "bad request")
-// 		return nil
-// 	}
-
-// 	songDetail, err := s.storage.GetSong(decodedGroup, decodedSong)
-// 	if err != nil {
-// 		WriteJSON(w, http.StatusInternalServerError, "internal server error", err)
-// 		return nil
-// 	}
-// 	if songDetail.ReleaseDate == "" {
-// 		WriteJSON(w, http.StatusNotFound, "not found")
-// 		return nil
-// 	}
-// 	WriteJSON(w, http.StatusOK, songDetail)
-// 	return nil
-// }
+func (s *APIServer) handleGetSongText(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
 
 func (s *APIServer) handleUpdateSong(w http.ResponseWriter, r *http.Request) error {
 	updateSong := new(models.UpdateSong)
