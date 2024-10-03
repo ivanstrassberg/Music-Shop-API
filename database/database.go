@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	models "musicShopBackend/musicModels"
+	"strings"
 	"time"
 
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -16,6 +17,7 @@ type Storage interface {
 	AddSong(string, string) error
 	DeleteSong(int) error
 	GetFilteredSongsDataWithPagination(string, string, time.Time, string, string, int, int) ([]models.GetSong, int, error)
+	GetSong(string, string, int, int) (string, error)
 }
 
 type PostgresStore struct {
@@ -39,6 +41,45 @@ func NewPostgresStorage() (*PostgresStore, error) {
 	}, nil
 }
 
+func (s *PostgresStore) GetSong(songName, groupName string, page, versesPerPage int) (string, error) {
+	query := "SELECT song_text FROM songs WHERE 1=1"
+	var args []interface{}
+	argCount := 1
+
+	if songName != "" {
+		query += fmt.Sprintf(" AND song_name ILIKE '%%' || $%d || '%%'", argCount)
+		args = append(args, songName)
+		argCount++
+	}
+
+	if groupName != "" {
+		query += fmt.Sprintf(" AND group_name ILIKE '%%' || $%d || '%%'", argCount)
+		args = append(args, groupName)
+		argCount++
+	}
+
+	var songText string
+	err := s.db.QueryRow(query, args...).Scan(&songText)
+	if err != nil {
+		return "", err
+	}
+
+	verses := strings.Split(songText, "\n")
+
+	start := (page - 1) * versesPerPage
+	end := start + versesPerPage
+
+	if start >= len(verses) {
+		return "", fmt.Errorf("no verses available for this page")
+	}
+
+	if end > len(verses) {
+		end = len(verses)
+	}
+
+	return strings.Join(verses[start:end], "\n"), nil
+}
+
 func formatToStringForDBRequest(date time.Time) string {
 	return date.Format("2006-01-02")
 }
@@ -60,7 +101,7 @@ func scanIntoSong(rows *sql.Rows) ([]models.GetSong, error) {
 		songDetails.Song = song.String
 		songDetails.Group = group.String
 		if releaseDate.Valid {
-			songDetails.ReleaseDate = convertToTimeAndFormat(releaseDate.Time)
+			songDetails.ReleaseDate = formatToStringForDBRequest(releaseDate.Time)
 		} else {
 			songDetails.ReleaseDate = ""
 		}
@@ -167,11 +208,4 @@ func (s *PostgresStore) GetFilteredSongsDataWithPagination(songName, groupName s
 	}
 
 	return songs, entriesTotal, nil
-}
-
-func convertToTimeAndFormat(dateStr time.Time) string {
-	// parsedTime, _ := time.Parse(time.RFC3339, dateStr)
-
-	formattedDate := dateStr.Format("02.01.2006")
-	return formattedDate
 }

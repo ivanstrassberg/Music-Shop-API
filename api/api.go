@@ -8,6 +8,7 @@ import (
 	models "musicShopBackend/musicModels"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -25,8 +26,8 @@ func NewAPIServer(listedAddr string, store database.Storage) *APIServer {
 
 func (s *APIServer) Run() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /info", makeHTTPHandleFunc(s.handleGetSongsWithPagination))
-	mux.HandleFunc("GET /info/{group}/{song}", makeHTTPHandleFunc(s.handleGetSongText))
+	mux.HandleFunc("GET /songs", makeHTTPHandleFunc(s.handleGetSongsWithPagination))
+	mux.HandleFunc("GET /info", makeHTTPHandleFunc(s.handleGetSongText))
 	mux.HandleFunc("POST /info", makeHTTPHandleFunc(s.handlePostSong))
 	mux.HandleFunc("PUT /info", makeHTTPHandleFunc(s.handleUpdateSong))
 	mux.HandleFunc("DELETE /info/{id}", makeHTTPHandleFunc(s.handleDeleteSong))
@@ -38,6 +39,40 @@ func (s *APIServer) Run() {
 }
 
 func (s *APIServer) handleGetSongText(w http.ResponseWriter, r *http.Request) error {
+	songName := r.URL.Query().Get("song_name")
+	groupName := r.URL.Query().Get("group_name")
+	pageStr := r.URL.Query().Get("page")
+	entriesStr := r.URL.Query().Get("entries")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	entriesPerPage, err := strconv.Atoi(entriesStr)
+	if err != nil || entriesPerPage < 1 {
+		entriesPerPage = 5
+	}
+
+	if songName == "" {
+		songName = ""
+	}
+	if groupName == "" {
+		groupName = ""
+	}
+
+	verses, err := s.storage.GetSong(songName, groupName, page, entriesPerPage)
+	if err != nil {
+		WriteJSON(w, http.StatusInternalServerError, "internal server error")
+		return err
+	}
+
+	response := models.SongVerses{
+		Page:           page,
+		EntriesPerPage: entriesPerPage,
+		Verses:         strings.Split(verses, "\n"),
+	}
+	WriteJSON(w, http.StatusOK, response)
 	return nil
 }
 
@@ -148,8 +183,6 @@ func (s *APIServer) handleGetSongsWithPagination(w http.ResponseWriter, r *http.
 	return nil
 }
 
-// Auxiliary functions.
-
 func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := f(w, r); err != nil {
@@ -162,7 +195,7 @@ func WriteJSON(w http.ResponseWriter, status int, msg any, err ...error) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(msg)
-	// log.Println(err)
+
 }
 
 type apiFunc func(http.ResponseWriter, *http.Request) error

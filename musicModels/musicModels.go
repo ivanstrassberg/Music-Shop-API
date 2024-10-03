@@ -42,6 +42,12 @@ type UpdateSong struct {
 	SongLink    string `json:"song_link"`
 }
 
+type SongVerses struct {
+	Page           int      `json:"page"`
+	EntriesPerPage int      `json:"entries_per_page"`
+	Verses         []string `json:"verses"`
+}
+
 type AddSong struct {
 	Group string `json:"group"`
 	Song  string `json:"song"`
