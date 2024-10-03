@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+
 	"fmt"
 	"log"
 	database "musicShopBackend/database"
@@ -10,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 type APIServer struct {
@@ -31,12 +34,28 @@ func (s *APIServer) Run() {
 	mux.HandleFunc("POST /info", makeHTTPHandleFunc(s.handlePostSong))
 	mux.HandleFunc("PUT /info", makeHTTPHandleFunc(s.handleUpdateSong))
 	mux.HandleFunc("DELETE /info/{id}", makeHTTPHandleFunc(s.handleDeleteSong))
+	http.Handle("/swagger/", httpSwagger.WrapHandler)
+
 	log.Println("Server started on port", s.listenAddr)
 	if err := http.ListenAndServe(s.listenAddr, mux); err != nil {
 		fmt.Errorf("Failed to start a server on port %s", s.listenAddr)
 	}
 
 }
+
+// @Summary Get Song Text with Pagination
+// @Description Retrieve a specific song's verses with pagination. You can provide a song name, group name, page number, and the number of verses per page.
+// @Tags Songs
+// @Accept  json
+// @Produce  json
+// @Param song_name query string false "The name of the song to retrieve verses from."
+// @Param group_name query string false "The group or artist name to retrieve the song from."
+// @Param page query int false "Page number for paginated verses." default(1)
+// @Param entries query int false "Number of verses per page." default(5)
+// @Success 200 {object} models.SongVerses "Returns paginated verses from the song."
+// @Failure 400 {object} string "Invalid request parameters."
+// @Failure 500 {object} string "Internal server error."
+// @Router /infi [get]
 
 func (s *APIServer) handleGetSongText(w http.ResponseWriter, r *http.Request) error {
 	songName := r.URL.Query().Get("song_name")
