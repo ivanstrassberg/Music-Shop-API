@@ -31,6 +31,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+
 	server := api.NewAPIServer(":8080", storage)
 	server.Run()
 }

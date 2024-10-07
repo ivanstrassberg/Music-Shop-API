@@ -2,9 +2,9 @@ package api
 
 import (
 	"encoding/json"
-
 	"fmt"
 	"log"
+	"musicShopBackend/app/docs"
 	database "musicShopBackend/database"
 	models "musicShopBackend/musicModels"
 	"net/http"
@@ -28,6 +28,13 @@ func NewAPIServer(listedAddr string, store database.Storage) *APIServer {
 }
 
 func (s *APIServer) Run() {
+	docs.SwaggerInfo.Title = "Swagger Example API"
+	docs.SwaggerInfo.Description = "This is a sample server Petstore server."
+	docs.SwaggerInfo.Version = "1.0"
+	docs.SwaggerInfo.Host = "petstore.swagger.io"
+	docs.SwaggerInfo.BasePath = "/v2"
+	docs.SwaggerInfo.Schemes = []string{"http", "https"}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /songs", makeHTTPHandleFunc(s.handleGetSongsWithPagination))
 	mux.HandleFunc("GET /info", makeHTTPHandleFunc(s.handleGetSongText))
