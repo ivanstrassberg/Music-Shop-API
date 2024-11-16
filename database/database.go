@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	models "musicShopBackend/musicModels"
+	"os"
 	"strings"
 	"time"
 
@@ -25,7 +26,12 @@ type PostgresStore struct {
 }
 
 func NewPostgresStorage() (*PostgresStore, error) {
-	connStr := "user=postgres port=5433 dbname=musicshop password=root sslmode=disable"
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	dbname := os.Getenv("DB_NAME")
+	port := os.Getenv("DB_PORT")
+	host := os.Getenv("DB_HOST")
+	connStr := fmt.Sprintf("host=%s user=%s port=%s dbname=%s password=%s sslmode=disable", host, user, port, dbname, password)
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 

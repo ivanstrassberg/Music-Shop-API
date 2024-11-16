@@ -21,11 +21,18 @@ package main
 
 import (
 	"fmt"
+	"log"
 	api "musicShopBackend/api"
 	database "musicShopBackend/database"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Println("Error loading .env file, falling back to system environment variables")
+	}
 	storage, err := database.NewPostgresStorage()
 	if err != nil {
 		fmt.Println(err)
