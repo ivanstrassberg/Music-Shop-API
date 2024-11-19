@@ -38,7 +38,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-
+	storage.MigrateDB()
 	server := api.NewAPIServer(":8080", storage)
 	server.Run()
 }

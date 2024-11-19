@@ -29,6 +29,7 @@ func NewAPIServer(listedAddr string, store database.Storage) *APIServer {
 func (s *APIServer) Run() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /songs", makeHTTPHandleFunc(s.handleGetSongsWithPagination))
+	mux.HandleFunc("/test", makeHTTPHandleFunc(s.handleTest))
 	mux.HandleFunc("GET /info", makeHTTPHandleFunc(s.handleGetSongText))
 	mux.HandleFunc("POST /info", makeHTTPHandleFunc(s.handlePostSong))
 	mux.HandleFunc("PUT /info", makeHTTPHandleFunc(s.handleUpdateSong))
@@ -55,6 +56,11 @@ func (s *APIServer) Run() {
 // @Failure 400 {object} string "Invalid request parameters."
 // @Failure 500 {object} string "Internal server error."
 // @Router /infi [get]
+
+func (s *APIServer) handleTest(w http.ResponseWriter, r *http.Request) error {
+	WriteJSON(w, 200, "server works")
+	return nil
+}
 
 func (s *APIServer) handleGetSongText(w http.ResponseWriter, r *http.Request) error {
 	songName := r.URL.Query().Get("song_name")

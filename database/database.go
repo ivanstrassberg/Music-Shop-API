@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	models "musicShopBackend/musicModels"
 	"os"
 	"strings"
@@ -16,13 +17,22 @@ import (
 type Storage interface {
 	UpdateSong(int, string, string, time.Time, string, string) error
 	AddSong(string, string) error
+	SeedDataIfEmpty() error
 	DeleteSong(int) error
+	CreateTableIfNotExists() error
 	GetFilteredSongsDataWithPagination(string, string, time.Time, string, string, int, int) ([]models.GetSong, int, error)
 	GetSong(string, string, int, int) (string, error)
 }
 
 type PostgresStore struct {
 	db *sql.DB
+}
+
+func (s *PostgresStore) MigrateDB() {
+
+	s.CreateTableIfNotExists()
+	s.SeedDataIfEmpty()
+
 }
 
 func NewPostgresStorage() (*PostgresStore, error) {
@@ -214,4 +224,60 @@ func (s *PostgresStore) GetFilteredSongsDataWithPagination(songName, groupName s
 	}
 
 	return songs, entriesTotal, nil
+}
+
+func (s *PostgresStore) CreateTableIfNotExists() error {
+	query := `
+	CREATE EXTENSION IF NOT EXISTS pgcrypto;
+	CREATE TABLE IF NOT EXISTS songs (
+		song_id SERIAL PRIMARY KEY,
+		song_name VARCHAR(255) NOT NULL,
+		group_name VARCHAR(255) NOT NULL,
+		release_date DATE,
+		song_text TEXT,
+		song_link VARCHAR(255),
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+		updated_at TIMESTAMP DEFAULT NULL
+	);`
+
+	_, err := s.db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("failed to create table: %w", err)
+	}
+	log.Println("Table 'songs' is ready.")
+	return nil
+}
+
+func (s *PostgresStore) SeedDataIfEmpty() error {
+	var count int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM songs`).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("failed to check if table is empty: %w", err)
+	}
+
+	if count == 0 {
+		query := `
+		INSERT INTO songs (song_name, group_name, release_date, song_text, song_link)
+		VALUES 
+		('Bohemian Rhapsody', 'Queen', '1975-10-31', 'Is this the real life?\nIs this just fantasy?\nCaught in a landslide,\nNo escape from reality.', 'https://example.com/bohemian-rhapsody'),
+		('Imagine', 'John Lennon', '1971-10-11', 'Imagine there''s no heaven,\nIt''s easy if you try,\nNo hell below us,\nAbove us, only sky.', 'https://example.com/imagine'),
+		('Hotel California', 'Eagles', '1976-12-08', 'On a dark desert highway,\nCool wind in my hair,\nWarm smell of colitas,\nRising up through the air.', 'https://example.com/hotel-california'),
+		('Stairway to Heaven', 'Led Zeppelin', '1971-11-08', 'There''s a lady who''s sure,\nAll that glitters is gold,\nAnd she''s buying a stairway to heaven.', 'https://example.com/stairway-to-heaven'),
+		('Smells Like Teen Spirit', 'Nirvana', '1991-09-10', 'Load up on guns, bring your friends,\nIt''s fun to lose and to pretend.', 'https://example.com/smells-like-teen-spirit'),
+		('Billie Jean', 'Michael Jackson', '1983-01-02', 'She was more like a beauty queen,\nFrom a movie scene.', 'https://example.com/billie-jean'),
+		('Wonderwall', 'Oasis', '1995-10-30', 'Today is gonna be the day,\nThat they''re gonna throw it back to you.', 'https://example.com/wonderwall'),
+		('Hey Jude', 'The Beatles', '1968-08-26', 'Hey Jude, don''t make it bad,\nTake a sad song and make it better.', 'https://example.com/hey-jude'),
+		('Like a Rolling Stone', 'Bob Dylan', '1965-07-20', 'Once upon a time you dressed so fine,\nThrew the bums a dime, in your prime, didn’t you?', 'https://example.com/like-a-rolling-stone'),
+		('Purple Haze', 'Jimi Hendrix', '1967-03-17', 'Purple haze all in my brain,\nLately things just don''t seem the same.', 'https://example.com/purple-haze');`
+
+		_, err = s.db.Exec(query)
+		if err != nil {
+			return fmt.Errorf("failed to seed data: %w", err)
+		}
+		log.Println("Data seeded successfully.")
+	} else {
+		log.Println("Table 'songs' already has data. No seeding required.")
+	}
+
+	return nil
 }
